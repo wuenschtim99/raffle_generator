@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Countdown Raffle</title>
 <meta name="description" content="Create a raffle, share the link, and the wheel spins when the countdown hits zero.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Countdown Raffle">
+<meta property="og:title" content="🎡 You're invited to a raffle!">
+<meta property="og:description" content="Open the link to see the countdown. The wheel spins live at the draw time.">
+<meta property="og:image" content="https://wuenschtim99.github.io/raffle_generator/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root{
     --bg:#0f1220; --card:#181c30; --line:#2a3050; --text:#eef0fa; --muted:#9aa1c3;
@@ -27,6 +35,7 @@
   .row > *{flex:1 1 140px}
   button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
   button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  button.wa{background:#25d366;color:#05250f}
   button:disabled{opacity:.5;cursor:not-allowed}
   .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .quick button{padding:6px 10px;font-size:.85rem;font-weight:600}
@@ -99,6 +108,10 @@
           <button id="copy">Copy</button>
         </div>
         <div class="row" style="margin-top:8px">
+          <button class="wa" id="wa">Share on WhatsApp</button>
+          <button class="ghost" id="copyMsg">Copy invite message</button>
+        </div>
+        <div class="row" style="margin-top:8px">
           <button class="ghost" id="open">Open raffle</button>
           <button class="ghost" id="nativeShare" hidden>Share…</button>
         </div>
@@ -124,7 +137,8 @@
     <div class="winner" id="winner"><small>Winner</small><strong id="winnerName"></strong></div>
     <div class="people" id="people"></div>
     <div class="actions">
-      <button class="ghost" id="copy2">Copy invite link</button>
+      <button class="wa" id="wa2">Share on WhatsApp</button>
+      <button class="ghost" id="copy2">Copy invite message</button>
       <button class="ghost" id="replay" hidden>Replay spin</button>
       <button class="ghost" id="newOne">Create your own raffle</button>
     </div>
@@ -153,6 +167,14 @@
   // Deterministic: everyone with the same link gets the same winner and the same spin.
   function hash32(str){ let h = 2166136261 >>> 0; for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function rng(seed){ let a = seed; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  function fmtWhen(at){
+    return new Date(at).toLocaleString(undefined, {weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZoneName:'short'});
+  }
+  function inviteText(title, at, count, url){
+    return `🎡 *${title}*\n⏰ The wheel spins on *${fmtWhen(at)}*\n👥 ${count} participants\n\nWatch the draw live: ${url}`;
+  }
+  const openWhatsApp = text => window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 
   const route = () => {
     const h = location.hash.slice(1);
@@ -191,8 +213,12 @@
       const url = location.href.split('#')[0] + '#r=' + encodeRaffle({title: $('title').value.trim() || 'Raffle', names, at, seed});
       $('link').value = url;
       $('share').classList.add('show');
+      const title = $('title').value.trim() || 'Raffle';
+      const msg = inviteText(title, at, names.length, url);
       $('open').onclick = () => { location.href = url; };
-      if (navigator.share) { $('nativeShare').hidden = false; $('nativeShare').onclick = () => navigator.share({title: $('title').value || 'Raffle', text: 'Join the raffle!', url}).catch(()=>{}); }
+      $('wa').onclick = () => openWhatsApp(msg);
+      $('copyMsg').onclick = () => copy(msg, $('copyMsg'));
+      if (navigator.share) { $('nativeShare').hidden = false; $('nativeShare').onclick = () => navigator.share({title, text: msg}).catch(()=>{}); }
       $('share').scrollIntoView({behavior:'smooth', block:'center'});
     };
     $('copy').onclick = () => copy($('link').value, $('copy'));
@@ -209,11 +235,12 @@
     $('raffle').hidden = false;
     $('rTitle').textContent = r.title;
     document.title = r.title + ' · Raffle';
-    const when = new Date(r.at);
-    $('rWhen').textContent = 'Draw: ' + when.toLocaleString(undefined, {weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+    $('rWhen').textContent = 'Draw: ' + fmtWhen(r.at);
     $('people').innerHTML = '';
     r.names.forEach(n => { const s = document.createElement('span'); s.textContent = n; $('people').appendChild(s); });
-    $('copy2').onclick = () => copy(location.href, $('copy2'));
+    const msg = inviteText(r.title, r.at, r.names.length, location.href);
+    $('copy2').onclick = () => copy(msg, $('copy2'));
+    $('wa2').onclick = () => openWhatsApp(msg);
     $('newOne').onclick = () => { location.href = location.href.split('#')[0]; };
 
     const n = r.names.length;
